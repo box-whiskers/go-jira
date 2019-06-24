@@ -9,7 +9,14 @@ import (
 // ProjectService handles projects for the JIRA instance / API.
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/latest/#api/2/project
-type ProjectService struct {
+type ProjectService interface {
+	GetList() (*ProjectList, *Response, error)
+	ListWithOptions(*GetQueryOptions) (*ProjectList, *Response, error)
+	Get(string) (*Project, *Response, error)
+	GetPermissionScheme(string) (*PermissionScheme, *Response, error)
+}
+
+type ProjectServiceImpl struct {
 	client *Client
 }
 
@@ -83,7 +90,7 @@ type PermissionScheme struct {
 // GetList gets all projects form JIRA
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/latest/#api/2/project-getAllProjects
-func (s *ProjectService) GetList() (*ProjectList, *Response, error) {
+func (s *ProjectServiceImpl) GetList() (*ProjectList, *Response, error) {
 	return s.ListWithOptions(&GetQueryOptions{})
 }
 
@@ -91,7 +98,7 @@ func (s *ProjectService) GetList() (*ProjectList, *Response, error) {
 // a list of all projects and their supported issuetypes
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/latest/#api/2/project-getAllProjects
-func (s *ProjectService) ListWithOptions(options *GetQueryOptions) (*ProjectList, *Response, error) {
+func (s *ProjectServiceImpl) ListWithOptions(options *GetQueryOptions) (*ProjectList, *Response, error) {
 	apiEndpoint := "rest/api/2/project"
 	req, err := s.client.NewRequest("GET", apiEndpoint, nil)
 	if err != nil {
@@ -121,7 +128,7 @@ func (s *ProjectService) ListWithOptions(options *GetQueryOptions) (*ProjectList
 // This can be an project id, or an project key.
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/latest/#api/2/project-getProject
-func (s *ProjectService) Get(projectID string) (*Project, *Response, error) {
+func (s *ProjectServiceImpl) Get(projectID string) (*Project, *Response, error) {
 	apiEndpoint := fmt.Sprintf("rest/api/2/project/%s", projectID)
 	req, err := s.client.NewRequest("GET", apiEndpoint, nil)
 	if err != nil {
@@ -143,7 +150,7 @@ func (s *ProjectService) Get(projectID string) (*Project, *Response, error) {
 // This can be an project id, or an project key.
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/latest/#api/2/project-getProject
-func (s *ProjectService) GetPermissionScheme(projectID string) (*PermissionScheme, *Response, error) {
+func (s *ProjectServiceImpl) GetPermissionScheme(projectID string) (*PermissionScheme, *Response, error) {
 	apiEndpoint := fmt.Sprintf("/rest/api/2/project/%s/permissionscheme", projectID)
 	req, err := s.client.NewRequest("GET", apiEndpoint, nil)
 	if err != nil {

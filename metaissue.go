@@ -43,12 +43,12 @@ type MetaIssueType struct {
 }
 
 // GetCreateMeta makes the api call to get the meta information required to create a ticket
-func (s *IssueService) GetCreateMeta(projectkeys string) (*CreateMetaInfo, *Response, error) {
+func (s *IssueServiceImpl) GetCreateMeta(projectkeys string) (*CreateMetaInfo, *Response, error) {
 	return s.GetCreateMetaWithOptions(&GetQueryOptions{ProjectKeys: projectkeys, Expand: "projects.issuetypes.fields"})
 }
 
 // GetCreateMetaWithOptions makes the api call to get the meta information without requiring to have a projectKey
-func (s *IssueService) GetCreateMetaWithOptions(options *GetQueryOptions) (*CreateMetaInfo, *Response, error) {
+func (s *IssueServiceImpl) GetCreateMetaWithOptions(options *GetQueryOptions) (*CreateMetaInfo, *Response, error) {
 	apiEndpoint := "rest/api/2/issue/createmeta"
 
 	req, err := s.client.NewRequest("GET", apiEndpoint, nil)

@@ -9,7 +9,16 @@ import (
 // UserService handles users for the JIRA instance / API.
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/cloud/#api/2/user
-type UserService struct {
+type UserService interface {
+	Get(string) (*User, *Response, error)
+	Create(*User) (*User, *Response, error)
+	Delete(string) (*Response, error)
+	GetGroups(string) (*[]UserGroup, *Response, error)
+	GetSelf() (*User, *Response, error)
+	Find(string, ...userSearchF) ([]User, *Response, error)
+}
+
+type UserServiceImpl struct {
 	client *Client
 }
 
@@ -48,7 +57,7 @@ type userSearchF func(userSearch) userSearch
 // Get gets user info from JIRA
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/cloud/#api/2/user-getUser
-func (s *UserService) Get(username string) (*User, *Response, error) {
+func (s *UserServiceImpl) Get(username string) (*User, *Response, error) {
 	apiEndpoint := fmt.Sprintf("/rest/api/2/user?username=%s", username)
 	req, err := s.client.NewRequest("GET", apiEndpoint, nil)
 	if err != nil {
@@ -66,7 +75,7 @@ func (s *UserService) Get(username string) (*User, *Response, error) {
 // Create creates an user in JIRA.
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/cloud/#api/2/user-createUser
-func (s *UserService) Create(user *User) (*User, *Response, error) {
+func (s *UserServiceImpl) Create(user *User) (*User, *Response, error) {
 	apiEndpoint := "/rest/api/2/user"
 	req, err := s.client.NewRequest("POST", apiEndpoint, user)
 	if err != nil {
@@ -97,7 +106,7 @@ func (s *UserService) Create(user *User) (*User, *Response, error) {
 // Returns http.StatusNoContent on success.
 //
 // JIRA API docs: https://developer.atlassian.com/cloud/jira/platform/rest/#api-api-2-user-delete
-func (s *UserService) Delete(username string) (*Response, error) {
+func (s *UserServiceImpl) Delete(username string) (*Response, error) {
 	apiEndpoint := fmt.Sprintf("/rest/api/2/user?username=%s", username)
 	req, err := s.client.NewRequest("DELETE", apiEndpoint, nil)
 	if err != nil {
@@ -114,7 +123,7 @@ func (s *UserService) Delete(username string) (*Response, error) {
 // GetGroups returns the groups which the user belongs to
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/cloud/#api/2/user-getUserGroups
-func (s *UserService) GetGroups(username string) (*[]UserGroup, *Response, error) {
+func (s *UserServiceImpl) GetGroups(username string) (*[]UserGroup, *Response, error) {
 	apiEndpoint := fmt.Sprintf("/rest/api/2/user/groups?username=%s", username)
 	req, err := s.client.NewRequest("GET", apiEndpoint, nil)
 	if err != nil {
@@ -132,7 +141,7 @@ func (s *UserService) GetGroups(username string) (*[]UserGroup, *Response, error
 // Get information about the current logged-in user
 //
 // JIRA API docs: https://developer.atlassian.com/cloud/jira/platform/rest/#api-api-2-myself-get
-func (s *UserService) GetSelf() (*User, *Response, error) {
+func (s *UserServiceImpl) GetSelf() (*User, *Response, error) {
 	const apiEndpoint = "rest/api/2/myself"
 	req, err := s.client.NewRequest("GET", apiEndpoint, nil)
 	if err != nil {
@@ -182,7 +191,7 @@ func WithInactive(inactive bool) userSearchF {
 // It can find users by email, username or name
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/cloud/#api/2/user-findUsers
-func (s *UserService) Find(property string, tweaks ...userSearchF) ([]User, *Response, error) {
+func (s *UserServiceImpl) Find(property string, tweaks ...userSearchF) ([]User, *Response, error) {
 	search := []userSearchParam{
 		{
 			name:  "username",

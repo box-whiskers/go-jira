@@ -26,7 +26,39 @@ const (
 // IssueService handles Issues for the JIRA instance / API.
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/latest/#api/2/issue
-type IssueService struct {
+type IssueService interface {
+	Get(string, *GetQueryOptions) (*Issue, *Response, error)
+	DownloadAttachment(string) (*Response, error)
+	PostAttachment(string, io.Reader, string) (*[]Attachment, *Response, error)
+	DeleteAttachment(string) (*Response, error)
+	GetWorklogs(string, ...func(*http.Request) error) (*Worklog, *Response, error)
+	Create(*Issue) (*Issue, *Response, error)
+	UpdateWithOptions(*Issue, *UpdateQueryOptions) (*Issue, *Response, error)
+	Update(*Issue) (*Issue, *Response, error)
+	UpdateIssue(string, map[string]interface{}) (*Response, error)
+	AddComment(string, *Comment) (*Comment, *Response, error)
+	UpdateComment(string, *Comment) (*Comment, *Response, error)
+	DeleteComment(string, string) error
+	AddWorklogRecord(string, *WorklogRecord, ...func(*http.Request) error) (*WorklogRecord, *Response, error)
+	AddLink(*IssueLink) (*Response, error)
+	Search(string, *SearchOptions) ([]Issue, *Response, error)
+	SearchPages(string, *SearchOptions, func(Issue) error) error
+	GetCustomFields(string) (CustomFields, *Response, error)
+	GetTransitions(string) ([]Transition, *Response, error)
+	DoTransition(string, string) (*Response, error)
+	DoTransitionWithPayload(interface{}, interface{}) (*Response, error)
+	Delete(string) (*Response, error)
+	GetWatchers(string) (*[]User, *Response, error)
+	AddWatcher(string, string) (*Response, error)
+	RemoveWatcher(string, string) (*Response, error)
+	UpdateAssignee(string, *User) (*Response, error)
+
+	//from MetaIssue
+	GetCreateMeta(string) (*CreateMetaInfo, *Response, error)
+	GetCreateMetaWithOptions(*GetQueryOptions) (*CreateMetaInfo, *Response, error)
+}
+
+type IssueServiceImpl struct {
 	client *Client
 }
 
@@ -566,7 +598,7 @@ type CustomFields map[string]string
 // The given options will be appended to the query string
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/latest/#api/2/issue-getIssue
-func (s *IssueService) Get(issueID string, options *GetQueryOptions) (*Issue, *Response, error) {
+func (s *IssueServiceImpl) Get(issueID string, options *GetQueryOptions) (*Issue, *Response, error) {
 	apiEndpoint := fmt.Sprintf("rest/api/2/issue/%s", issueID)
 	req, err := s.client.NewRequest("GET", apiEndpoint, nil)
 	if err != nil {
@@ -595,7 +627,7 @@ func (s *IssueService) Get(issueID string, options *GetQueryOptions) (*Issue, *R
 // The attachment is in the Response.Body of the response.
 // This is an io.ReadCloser.
 // The caller should close the resp.Body.
-func (s *IssueService) DownloadAttachment(attachmentID string) (*Response, error) {
+func (s *IssueServiceImpl) DownloadAttachment(attachmentID string) (*Response, error) {
 	apiEndpoint := fmt.Sprintf("secure/attachment/%s/", attachmentID)
 	req, err := s.client.NewRequest("GET", apiEndpoint, nil)
 	if err != nil {
@@ -612,7 +644,7 @@ func (s *IssueService) DownloadAttachment(attachmentID string) (*Response, error
 }
 
 // PostAttachment uploads r (io.Reader) as an attachment to a given issueID
-func (s *IssueService) PostAttachment(issueID string, r io.Reader, attachmentName string) (*[]Attachment, *Response, error) {
+func (s *IssueServiceImpl) PostAttachment(issueID string, r io.Reader, attachmentName string) (*[]Attachment, *Response, error) {
 	apiEndpoint := fmt.Sprintf("rest/api/2/issue/%s/attachments", issueID)
 
 	b := new(bytes.Buffer)
@@ -650,7 +682,7 @@ func (s *IssueService) PostAttachment(issueID string, r io.Reader, attachmentNam
 }
 
 // DeleteAttachment deletes an attachment of a given attachmentID
-func (s *IssueService) DeleteAttachment(attachmentID string) (*Response, error) {
+func (s *IssueServiceImpl) DeleteAttachment(attachmentID string) (*Response, error) {
 	apiEndpoint := fmt.Sprintf("rest/api/2/attachment/%s", attachmentID)
 
 	req, err := s.client.NewRequest("DELETE", apiEndpoint, nil)
@@ -671,7 +703,7 @@ func (s *IssueService) DeleteAttachment(attachmentID string) (*Response, error) 
 // This method is especially important if you need to read all the worklogs, not just the first page.
 //
 // https://docs.atlassian.com/jira/REST/cloud/#api/2/issue/{issueIdOrKey}/worklog-getIssueWorklog
-func (s *IssueService) GetWorklogs(issueID string, options ...func(*http.Request) error) (*Worklog, *Response, error) {
+func (s *IssueServiceImpl) GetWorklogs(issueID string, options ...func(*http.Request) error) (*Worklog, *Response, error) {
 	apiEndpoint := fmt.Sprintf("rest/api/2/issue/%s/worklog", issueID)
 
 	req, err := s.client.NewRequest("GET", apiEndpoint, nil)
@@ -712,7 +744,7 @@ func WithQueryOptions(options interface{}) func(*http.Request) error {
 // The issueType field must correspond to a sub-task issue type and you must provide a parent field in the issue create request containing the id or key of the parent issue.
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/latest/#api/2/issue-createIssues
-func (s *IssueService) Create(issue *Issue) (*Issue, *Response, error) {
+func (s *IssueServiceImpl) Create(issue *Issue) (*Issue, *Response, error) {
 	apiEndpoint := "rest/api/2/issue"
 	req, err := s.client.NewRequest("POST", apiEndpoint, issue)
 	if err != nil {
@@ -741,7 +773,7 @@ func (s *IssueService) Create(issue *Issue) (*Issue, *Response, error) {
 // while also specifiying query params. The issue is found by key.
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/cloud/#api/2/issue-editIssue
-func (s *IssueService) UpdateWithOptions(issue *Issue, opts *UpdateQueryOptions) (*Issue, *Response, error) {
+func (s *IssueServiceImpl) UpdateWithOptions(issue *Issue, opts *UpdateQueryOptions) (*Issue, *Response, error) {
 	apiEndpoint := fmt.Sprintf("rest/api/2/issue/%v", issue.Key)
 	url, err := addOptions(apiEndpoint, opts)
 	if err != nil {
@@ -766,14 +798,14 @@ func (s *IssueService) UpdateWithOptions(issue *Issue, opts *UpdateQueryOptions)
 // Update updates an issue from a JSON representation. The issue is found by key.
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/cloud/#api/2/issue-editIssue
-func (s *IssueService) Update(issue *Issue) (*Issue, *Response, error) {
+func (s *IssueServiceImpl) Update(issue *Issue) (*Issue, *Response, error) {
 	return s.UpdateWithOptions(issue, nil)
 }
 
 // UpdateIssue updates an issue from a JSON representation. The issue is found by key.
 //
 // https://docs.atlassian.com/jira/REST/7.4.0/#api/2/issue-editIssue
-func (s *IssueService) UpdateIssue(jiraID string, data map[string]interface{}) (*Response, error) {
+func (s *IssueServiceImpl) UpdateIssue(jiraID string, data map[string]interface{}) (*Response, error) {
 	apiEndpoint := fmt.Sprintf("rest/api/2/issue/%v", jiraID)
 	req, err := s.client.NewRequest("PUT", apiEndpoint, data)
 	if err != nil {
@@ -792,7 +824,7 @@ func (s *IssueService) UpdateIssue(jiraID string, data map[string]interface{}) (
 // AddComment adds a new comment to issueID.
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/latest/#api/2/issue-addComment
-func (s *IssueService) AddComment(issueID string, comment *Comment) (*Comment, *Response, error) {
+func (s *IssueServiceImpl) AddComment(issueID string, comment *Comment) (*Comment, *Response, error) {
 	apiEndpoint := fmt.Sprintf("rest/api/2/issue/%s/comment", issueID)
 	req, err := s.client.NewRequest("POST", apiEndpoint, comment)
 	if err != nil {
@@ -812,7 +844,7 @@ func (s *IssueService) AddComment(issueID string, comment *Comment) (*Comment, *
 // UpdateComment updates the body of a comment, identified by comment.ID, on the issueID.
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/cloud/#api/2/issue/{issueIdOrKey}/comment-updateComment
-func (s *IssueService) UpdateComment(issueID string, comment *Comment) (*Comment, *Response, error) {
+func (s *IssueServiceImpl) UpdateComment(issueID string, comment *Comment) (*Comment, *Response, error) {
 	reqBody := struct {
 		Body string `json:"body"`
 	}{
@@ -836,7 +868,7 @@ func (s *IssueService) UpdateComment(issueID string, comment *Comment) (*Comment
 // DeleteComment Deletes a comment from an issueID.
 //
 // JIRA API docs: https://developer.atlassian.com/cloud/jira/platform/rest/v3/#api-api-3-issue-issueIdOrKey-comment-id-delete
-func (s *IssueService) DeleteComment(issueID, commentID string) error {
+func (s *IssueServiceImpl) DeleteComment(issueID, commentID string) error {
 	apiEndpoint := fmt.Sprintf("rest/api/2/issue/%s/comment/%s", issueID, commentID)
 	req, err := s.client.NewRequest("DELETE", apiEndpoint, nil)
 	if err != nil {
@@ -855,7 +887,7 @@ func (s *IssueService) DeleteComment(issueID, commentID string) error {
 // AddWorklogRecord adds a new worklog record to issueID.
 //
 // https://developer.atlassian.com/cloud/jira/platform/rest/#api-api-2-issue-issueIdOrKey-worklog-post
-func (s *IssueService) AddWorklogRecord(issueID string, record *WorklogRecord, options ...func(*http.Request) error) (*WorklogRecord, *Response, error) {
+func (s *IssueServiceImpl) AddWorklogRecord(issueID string, record *WorklogRecord, options ...func(*http.Request) error) (*WorklogRecord, *Response, error) {
 	apiEndpoint := fmt.Sprintf("rest/api/2/issue/%s/worklog", issueID)
 	req, err := s.client.NewRequest("POST", apiEndpoint, record)
 	if err != nil {
@@ -882,7 +914,7 @@ func (s *IssueService) AddWorklogRecord(issueID string, record *WorklogRecord, o
 // AddLink adds a link between two issues.
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/latest/#api/2/issueLink
-func (s *IssueService) AddLink(issueLink *IssueLink) (*Response, error) {
+func (s *IssueServiceImpl) AddLink(issueLink *IssueLink) (*Response, error) {
 	apiEndpoint := fmt.Sprintf("rest/api/2/issueLink")
 	req, err := s.client.NewRequest("POST", apiEndpoint, issueLink)
 	if err != nil {
@@ -900,7 +932,7 @@ func (s *IssueService) AddLink(issueLink *IssueLink) (*Response, error) {
 // Search will search for tickets according to the jql
 //
 // JIRA API docs: https://developer.atlassian.com/jiradev/jira-apis/jira-rest-apis/jira-rest-api-tutorials/jira-rest-api-example-query-issues
-func (s *IssueService) Search(jql string, options *SearchOptions) ([]Issue, *Response, error) {
+func (s *IssueServiceImpl) Search(jql string, options *SearchOptions) ([]Issue, *Response, error) {
 	var u string
 	if options == nil {
 		u = fmt.Sprintf("rest/api/2/search?jql=%s", url.QueryEscape(jql))
@@ -939,7 +971,7 @@ func (s *IssueService) Search(jql string, options *SearchOptions) ([]Issue, *Res
 // SearchPages will get issues from all pages in a search
 //
 // JIRA API docs: https://developer.atlassian.com/jiradev/jira-apis/jira-rest-apis/jira-rest-api-tutorials/jira-rest-api-example-query-issues
-func (s *IssueService) SearchPages(jql string, options *SearchOptions, f func(Issue) error) error {
+func (s *IssueServiceImpl) SearchPages(jql string, options *SearchOptions, f func(Issue) error) error {
 	if options == nil {
 		options = &SearchOptions{
 			StartAt:    0,
@@ -977,7 +1009,7 @@ func (s *IssueService) SearchPages(jql string, options *SearchOptions, f func(Is
 }
 
 // GetCustomFields returns a map of customfield_* keys with string values
-func (s *IssueService) GetCustomFields(issueID string) (CustomFields, *Response, error) {
+func (s *IssueServiceImpl) GetCustomFields(issueID string) (CustomFields, *Response, error) {
 	apiEndpoint := fmt.Sprintf("rest/api/2/issue/%s", issueID)
 	req, err := s.client.NewRequest("GET", apiEndpoint, nil)
 	if err != nil {
@@ -1017,7 +1049,7 @@ func (s *IssueService) GetCustomFields(issueID string) (CustomFields, *Response,
 // along with fields that are required and their types.
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/latest/#api/2/issue-getTransitions
-func (s *IssueService) GetTransitions(id string) ([]Transition, *Response, error) {
+func (s *IssueServiceImpl) GetTransitions(id string) ([]Transition, *Response, error) {
 	apiEndpoint := fmt.Sprintf("rest/api/2/issue/%s/transitions?expand=transitions.fields", id)
 	req, err := s.client.NewRequest("GET", apiEndpoint, nil)
 	if err != nil {
@@ -1036,7 +1068,7 @@ func (s *IssueService) GetTransitions(id string) ([]Transition, *Response, error
 // When performing the transition you can update or set other issue fields.
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/latest/#api/2/issue-doTransition
-func (s *IssueService) DoTransition(ticketID, transitionID string) (*Response, error) {
+func (s *IssueServiceImpl) DoTransition(ticketID, transitionID string) (*Response, error) {
 	payload := CreateTransitionPayload{
 		Transition: TransitionPayload{
 			ID: transitionID,
@@ -1049,7 +1081,7 @@ func (s *IssueService) DoTransition(ticketID, transitionID string) (*Response, e
 // When performing the transition you can update or set other issue fields.
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/latest/#api/2/issue-doTransition
-func (s *IssueService) DoTransitionWithPayload(ticketID, payload interface{}) (*Response, error) {
+func (s *IssueServiceImpl) DoTransitionWithPayload(ticketID, payload interface{}) (*Response, error) {
 	apiEndpoint := fmt.Sprintf("rest/api/2/issue/%s/transitions", ticketID)
 
 	req, err := s.client.NewRequest("POST", apiEndpoint, payload)
@@ -1145,7 +1177,7 @@ func InitIssueWithMetaAndFields(metaProject *MetaProject, metaIssuetype *MetaIss
 }
 
 // Delete will delete a specified issue.
-func (s *IssueService) Delete(issueID string) (*Response, error) {
+func (s *IssueServiceImpl) Delete(issueID string) (*Response, error) {
 	apiEndpoint := fmt.Sprintf("rest/api/2/issue/%s", issueID)
 
 	// to enable deletion of subtasks; without this, the request will fail if the issue has subtasks
@@ -1165,7 +1197,7 @@ func (s *IssueService) Delete(issueID string) (*Response, error) {
 // GetWatchers wil return all the users watching/observing the given issue
 //
 // JIRA API docs: https://docs.atlassian.com/software/jira/docs/api/REST/latest/#api/2/issue-getIssueWatchers
-func (s *IssueService) GetWatchers(issueID string) (*[]User, *Response, error) {
+func (s *IssueServiceImpl) GetWatchers(issueID string) (*[]User, *Response, error) {
 	watchesAPIEndpoint := fmt.Sprintf("rest/api/2/issue/%s/watchers", issueID)
 
 	req, err := s.client.NewRequest("GET", watchesAPIEndpoint, nil)
@@ -1195,7 +1227,7 @@ func (s *IssueService) GetWatchers(issueID string) (*[]User, *Response, error) {
 // AddWatcher adds watcher to the given issue
 //
 // JIRA API docs: https://docs.atlassian.com/software/jira/docs/api/REST/latest/#api/2/issue-addWatcher
-func (s *IssueService) AddWatcher(issueID string, userName string) (*Response, error) {
+func (s *IssueServiceImpl) AddWatcher(issueID string, userName string) (*Response, error) {
 	apiEndPoint := fmt.Sprintf("rest/api/2/issue/%s/watchers", issueID)
 
 	req, err := s.client.NewRequest("POST", apiEndPoint, userName)
@@ -1214,7 +1246,7 @@ func (s *IssueService) AddWatcher(issueID string, userName string) (*Response, e
 // RemoveWatcher removes given user from given issue
 //
 // JIRA API docs: https://docs.atlassian.com/software/jira/docs/api/REST/latest/#api/2/issue-removeWatcher
-func (s *IssueService) RemoveWatcher(issueID string, userName string) (*Response, error) {
+func (s *IssueServiceImpl) RemoveWatcher(issueID string, userName string) (*Response, error) {
 	apiEndPoint := fmt.Sprintf("rest/api/2/issue/%s/watchers", issueID)
 
 	req, err := s.client.NewRequest("DELETE", apiEndPoint, userName)
@@ -1233,7 +1265,7 @@ func (s *IssueService) RemoveWatcher(issueID string, userName string) (*Response
 // UpdateAssignee updates the user assigned to work on the given issue
 //
 // JIRA API docs: https://docs.atlassian.com/software/jira/docs/api/REST/7.10.2/#api/2/issue-assign
-func (s *IssueService) UpdateAssignee(issueID string, assignee *User) (*Response, error) {
+func (s *IssueServiceImpl) UpdateAssignee(issueID string, assignee *User) (*Response, error) {
 	apiEndPoint := fmt.Sprintf("rest/api/2/issue/%s/assignee", issueID)
 
 	req, err := s.client.NewRequest("PUT", apiEndPoint, assignee)

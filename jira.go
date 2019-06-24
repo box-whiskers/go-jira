@@ -34,11 +34,11 @@ type Client struct {
 
 	// Services used for talking to different parts of the JIRA API.
 	Authentication   *AuthenticationService
-	Issue            *IssueService
-	Project          *ProjectService
+	Issue            IssueService
+	Project          ProjectService
 	Board            BoardService
-	Sprint           *SprintService
-	User             *UserService
+	Sprint           SprintService
+	User             UserService
 	Group            *GroupService
 	Version          *VersionService
 	Priority         *PriorityService
@@ -78,11 +78,11 @@ func NewClient(httpClient httpClient, baseURL string) (*Client, error) {
 		baseURL: parsedBaseURL,
 	}
 	c.Authentication = &AuthenticationService{client: c}
-	c.Issue = &IssueService{client: c}
-	c.Project = &ProjectService{client: c}
+	c.Issue = &IssueServiceImpl{client: c}
+	c.Project = &ProjectServiceImpl{client: c}
 	c.Board = &BoardServiceImpl{client: c}
-	c.Sprint = &SprintService{client: c}
-	c.User = &UserService{client: c}
+	c.Sprint = &SprintServiceImpl{client: c}
+	c.User = &UserServiceImpl{client: c}
 	c.Group = &GroupService{client: c}
 	c.Version = &VersionService{client: c}
 	c.Priority = &PriorityService{client: c}
