@@ -9,7 +9,18 @@ import (
 // BoardService handles Agile Boards for the JIRA instance / API.
 //
 // JIRA API docs: https://docs.atlassian.com/jira-software/REST/server/
-type BoardService struct {
+
+
+type BoardService interface {
+	GetAllBoards(*BoardListOptions) (*BoardsList, *Response, error)
+	GetBoard(int) (*Board, *Response, error)
+	CreateBoard(*Board) (*Board, *Response, error)
+	DeleteBoard(int) (*Board, *Response, error)
+	GetAllSprints(string) ([]Sprint, *Response, error)
+	GetAllSprintsWithOptions(int, *GetAllSprintsOptions) (*SprintsList, *Response, error)
+}
+
+type BoardServiceImpl struct {
 	client *Client
 }
 
@@ -86,7 +97,7 @@ type Sprint struct {
 // GetAllBoards will returns all boards. This only includes boards that the user has permission to view.
 //
 // JIRA API docs: https://docs.atlassian.com/jira-software/REST/cloud/#agile/1.0/board-getAllBoards
-func (s *BoardService) GetAllBoards(opt *BoardListOptions) (*BoardsList, *Response, error) {
+func (s *BoardServiceImpl) GetAllBoards(opt *BoardListOptions) (*BoardsList, *Response, error) {
 	apiEndpoint := "rest/agile/1.0/board"
 	url, err := addOptions(apiEndpoint, opt)
 	if err != nil {
@@ -111,7 +122,7 @@ func (s *BoardService) GetAllBoards(opt *BoardListOptions) (*BoardsList, *Respon
 // This board will only be returned if the user has permission to view it.
 //
 // JIRA API docs: https://docs.atlassian.com/jira-software/REST/cloud/#agile/1.0/board-getBoard
-func (s *BoardService) GetBoard(boardID int) (*Board, *Response, error) {
+func (s *BoardServiceImpl) GetBoard(boardID int) (*Board, *Response, error) {
 	apiEndpoint := fmt.Sprintf("rest/agile/1.0/board/%v", boardID)
 	req, err := s.client.NewRequest("GET", apiEndpoint, nil)
 	if err != nil {
@@ -136,7 +147,7 @@ func (s *BoardService) GetBoard(boardID int) (*Board, *Response, error) {
 // board will be created instead (remember that board sharing depends on the filter sharing).
 //
 // JIRA API docs: https://docs.atlassian.com/jira-software/REST/cloud/#agile/1.0/board-createBoard
-func (s *BoardService) CreateBoard(board *Board) (*Board, *Response, error) {
+func (s *BoardServiceImpl) CreateBoard(board *Board) (*Board, *Response, error) {
 	apiEndpoint := "rest/agile/1.0/board"
 	req, err := s.client.NewRequest("POST", apiEndpoint, board)
 	if err != nil {
@@ -156,7 +167,7 @@ func (s *BoardService) CreateBoard(board *Board) (*Board, *Response, error) {
 // DeleteBoard will delete an agile board.
 //
 // JIRA API docs: https://docs.atlassian.com/jira-software/REST/cloud/#agile/1.0/board-deleteBoard
-func (s *BoardService) DeleteBoard(boardID int) (*Board, *Response, error) {
+func (s *BoardServiceImpl) DeleteBoard(boardID int) (*Board, *Response, error) {
 	apiEndpoint := fmt.Sprintf("rest/agile/1.0/board/%v", boardID)
 	req, err := s.client.NewRequest("DELETE", apiEndpoint, nil)
 	if err != nil {
@@ -174,7 +185,7 @@ func (s *BoardService) DeleteBoard(boardID int) (*Board, *Response, error) {
 // This only includes sprints that the user has permission to view.
 //
 // JIRA API docs: https://docs.atlassian.com/jira-software/REST/cloud/#agile/1.0/board/{boardId}/sprint
-func (s *BoardService) GetAllSprints(boardID string) ([]Sprint, *Response, error) {
+func (s *BoardServiceImpl) GetAllSprints(boardID string) ([]Sprint, *Response, error) {
 	id, err := strconv.Atoi(boardID)
 	if err != nil {
 		return nil, nil, err
@@ -192,7 +203,7 @@ func (s *BoardService) GetAllSprints(boardID string) ([]Sprint, *Response, error
 // This only includes sprints that the user has permission to view.
 //
 // JIRA API docs: https://docs.atlassian.com/jira-software/REST/cloud/#agile/1.0/board/{boardId}/sprint
-func (s *BoardService) GetAllSprintsWithOptions(boardID int, options *GetAllSprintsOptions) (*SprintsList, *Response, error) {
+func (s *BoardServiceImpl) GetAllSprintsWithOptions(boardID int, options *GetAllSprintsOptions) (*SprintsList, *Response, error) {
 	apiEndpoint := fmt.Sprintf("rest/agile/1.0/board/%d/sprint", boardID)
 	url, err := addOptions(apiEndpoint, options)
 	if err != nil {

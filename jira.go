@@ -36,7 +36,7 @@ type Client struct {
 	Authentication   *AuthenticationService
 	Issue            *IssueService
 	Project          *ProjectService
-	Board            *BoardService
+	Board            BoardService
 	Sprint           *SprintService
 	User             *UserService
 	Group            *GroupService
@@ -80,7 +80,7 @@ func NewClient(httpClient httpClient, baseURL string) (*Client, error) {
 	c.Authentication = &AuthenticationService{client: c}
 	c.Issue = &IssueService{client: c}
 	c.Project = &ProjectService{client: c}
-	c.Board = &BoardService{client: c}
+	c.Board = &BoardServiceImpl{client: c}
 	c.Sprint = &SprintService{client: c}
 	c.User = &UserService{client: c}
 	c.Group = &GroupService{client: c}
